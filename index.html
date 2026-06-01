@@ -52,7 +52,7 @@ function initStars(){stars=[];for(let i=0;i<120;i++)stars.push({x:Math.random()*
 function init(){
   player={x:W/2-18,y:H-52,w:36,h:28,speed:4.5,invincible:0,thruster:0};
   bullets=[];enemies=[];particles=[];
-  score=0;lives=3;wave=1;running=true;paused=false;spawnTimer=0;mouseX=null;
+  score=0;lives=5;wave=1;running=true;paused=false;spawnTimer=0;mouseX=null;
   updateHUD();
   overlay.classList.add('hidden');
   spawnWave();
