@@ -37,8 +37,11 @@ canvas{display:block;border:1px solid #0ff5;box-shadow:0 0 24px #0ff3,0 0 60px #
       <div class="ov-title" id="ovTitle">VOID STRIKE</div>
       <div class="ov-sub" id="ovSub">Arrow keys / WASD to move<br>Space to fire · P to pause</div>
       <button id="startBtn">LAUNCH MISSION</button>
-      <div id="ovCredit" style="display:none;font-family:'Share Tech Mono',monospace;font-size:11px;color:#0ff8;text-align:center;line-height:2">
-       
+      <div id="ovCredit" style="display:none;font-family:'Share Tech Mono',monospace;font-size:11px;color:#0ff8;text-align:center;line-height:2"></div>
+    </div>
+  </div>
+</div>
+<script>
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d',{alpha:false});
 const W=canvas.width,H=canvas.height;
@@ -95,7 +98,7 @@ function renderStarCanvas(){
 }
 
 function init(){
-  player={x:W/2-18,y:H-52,w:36,h:28,speed:4.5,invincible:0,_shootCd:0};
+  player={x:W/2-18,y:H-52,w:36,h:28,speed:7.5,invincible:0,_shootCd:0};
   bullets=[];enemies=[];enemyBullets=[];particles=[];
   score=0;lives=5;wave=1;running=true;paused=false;mouseX=null;gameWon=false;
   updateHUD();
@@ -279,8 +282,8 @@ function update(){
   // Player shooting
   if(keys[' ']||keys['z']||keys['Z']){
     if(p._shootCd<=0){
-      bullets.push({x:p.x+p.w/2-2,y:p.y,w:4,h:14,speed:11});
-      p._shootCd=11;
+      bullets.push({x:p.x+p.w/2-2,y:p.y,w:4,h:14,speed:16});
+      p._shootCd=5;
     }
   }
   if(p._shootCd>0)p._shootCd--;
@@ -483,7 +486,7 @@ canvas.addEventListener('mouseleave',()=>{mouseX=null;});
 canvas.addEventListener('click',()=>{
   if(!running||paused)return;
   if(player._shootCd<=0){
-    bullets.push({x:player.x+player.w/2-2,y:player.y,w:4,h:14,speed:11});
+    bullets.push({x:player.x+player.w/2-2,y:player.y,w:4,h:14,speed:16});
     player._shootCd=11;
   }
 });
