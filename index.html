@@ -64,16 +64,72 @@ const keys={};
 let stars=[],nebulaPoints=[];
 let frameCount=0;
 
+// ── Wave announcement state ──
+let waveAnnounce={active:false,timer:0,duration:90,waveNum:1};
+
+function triggerWaveAnnounce(num){
+  waveAnnounce.active=true;
+  waveAnnounce.timer=waveAnnounce.duration;
+  waveAnnounce.waveNum=num;
+}
+
+function drawWaveAnnounce(){
+  if(!waveAnnounce.active)return;
+  const t=waveAnnounce.timer;
+  const dur=waveAnnounce.duration;
+
+  // Fade in first 15 frames, hold, fade out last 25 frames
+  let alpha;
+  if(t>dur-15)alpha=(dur-t)/15;
+  else if(t<25)alpha=t/25;
+  else alpha=1;
+
+  // Scale: slightly zoom in on entry
+  const scale=t>dur-15?(.85+.15*(1-(dur-t)/15)):1;
+
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.translate(W/2,H/2);
+  ctx.scale(scale,scale);
+
+  // Glow backdrop
+  const grd=ctx.createRadialGradient(0,0,10,0,0,160);
+  grd.addColorStop(0,'rgba(0,255,255,0.12)');
+  grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;
+  ctx.fillRect(-160,-70,320,140);
+
+  // Sub label
+  ctx.font="700 13px 'Orbitron',monospace";
+  ctx.fillStyle='#aef';
+  ctx.textAlign='center';
+  ctx.letterSpacing='6px';
+  ctx.fillText('INCOMING INVASION',0,-26);
+
+  // Main wave number
+  ctx.shadowBlur=40;
+  ctx.shadowColor='#0ff';
+  ctx.font="900 52px 'Orbitron',monospace";
+  ctx.fillStyle='#fff';
+  ctx.fillText('WAVE '+waveAnnounce.waveNum,0,32);
+
+  // Underline bar
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(0,255,255,0.5)';
+  ctx.fillRect(-90,44,180,2);
+
+  ctx.restore();
+
+  waveAnnounce.timer--;
+  if(waveAnnounce.timer<=0)waveAnnounce.active=false;
+}
+
 // ── Star layers (parallax) ──
 function initStars(){
   stars=[];
-  // Layer 0: dim distant
   for(let i=0;i<80;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:.5,sp:.12,b:.25+Math.random()*.3,layer:0});
-  // Layer 1: mid
   for(let i=0;i<50;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:1,sp:.28,b:.4+Math.random()*.4,layer:1});
-  // Layer 2: bright close
   for(let i=0;i<20;i++)stars.push({x:Math.random()*W,y:Math.random()*H,s:1.5,sp:.5,b:.7+Math.random()*.3,layer:2});
-  // Nebula blobs
   nebulaPoints=[];
   for(let i=0;i<6;i++)nebulaPoints.push({x:Math.random()*W,y:Math.random()*H,r:40+Math.random()*80,c:Math.random()<.5?'#0ff':'#60f',a:.025+Math.random()*.035});
   renderStarCanvas();
@@ -81,14 +137,12 @@ function initStars(){
 
 function renderStarCanvas(){
   sCtx.fillStyle='#000';sCtx.fillRect(0,0,W,H);
-  // Nebula
   nebulaPoints.forEach(n=>{
     const g=sCtx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
     g.addColorStop(0,n.c.replace(')',`,${n.a})`).replace('rgb','rgba').replace('#0ff',`rgba(0,255,255,${n.a})`).replace('#60f',`rgba(102,0,255,${n.a})`));
     g.addColorStop(1,'transparent');
     sCtx.fillStyle=g;sCtx.fillRect(0,0,W,H);
   });
-  // Static stars
   stars.forEach(s=>{
     sCtx.globalAlpha=s.b;
     sCtx.fillStyle=s.layer===2?'#cef':s.layer===1?'#adf':'#89c';
@@ -101,6 +155,7 @@ function init(){
   player={x:W/2-18,y:H-52,w:36,h:28,speed:7.5,invincible:0,_shootCd:0};
   bullets=[];enemies=[];enemyBullets=[];particles=[];
   score=0;lives=5;wave=1;running=true;paused=false;mouseX=null;gameWon=false;
+  waveAnnounce.active=false;
   updateHUD();
   overlay.classList.add('hidden');
   ovCredit.style.display='none';
@@ -135,10 +190,11 @@ function spawnWave(){
       });
     }
   }
+  // Show the wave announcement (skip wave 1 on first start, or show it — your call; showing all waves)
+  triggerWaveAnnounce(wave);
 }
 
 function spawnParticles(x,y,color,n=8){
-  // Cap total particles for performance
   if(particles.length>200)return;
   for(let i=0;i<n;i++){
     const ang=Math.random()*Math.PI*2;
@@ -147,14 +203,11 @@ function spawnParticles(x,y,color,n=8){
   }
 }
 
-// ── Drawing helpers ──
 function drawPlayer(){
   const p=player,cx=p.x+p.w/2;
   ctx.save();
   const blink=p.invincible>0&&Math.floor(p.invincible/5)%2===0;
   if(blink)ctx.globalAlpha=.25;
-
-  // Thruster flame
   const flkr=.7+Math.random()*.3;
   const grad=ctx.createLinearGradient(cx,p.y+p.h,cx,p.y+p.h+14*flkr);
   grad.addColorStop(0,'#fff');grad.addColorStop(.3,'#f90');grad.addColorStop(1,'transparent');
@@ -162,11 +215,7 @@ function drawPlayer(){
   ctx.beginPath();
   ctx.moveTo(cx-6,p.y+p.h);ctx.lineTo(cx+6,p.y+p.h);
   ctx.lineTo(cx,p.y+p.h+14*flkr);ctx.closePath();ctx.fill();
-
-  // Wing glow
   ctx.shadowBlur=12;ctx.shadowColor='#0cf';
-
-  // Hull body
   const hullGrad=ctx.createLinearGradient(p.x,p.y,p.x+p.w,p.y+p.h);
   hullGrad.addColorStop(0,'#0ef');hullGrad.addColorStop(.5,'#0af');hullGrad.addColorStop(1,'#07c');
   ctx.fillStyle=hullGrad;
@@ -175,13 +224,9 @@ function drawPlayer(){
   ctx.lineTo(cx-3,p.y+9);ctx.lineTo(cx-p.w/2,p.y+p.h-5);
   ctx.lineTo(cx-p.w/2+4,p.y+p.h);ctx.lineTo(cx+p.w/2-4,p.y+p.h);
   ctx.lineTo(cx+p.w/2,p.y+p.h-5);ctx.lineTo(cx+3,p.y+9);ctx.closePath();ctx.fill();
-
-  // Wing fins
   ctx.fillStyle='#08b';
   ctx.beginPath();ctx.moveTo(cx-12,p.y+14);ctx.lineTo(cx-p.w/2-8,p.y+p.h);ctx.lineTo(cx-p.w/2,p.y+p.h);ctx.closePath();ctx.fill();
   ctx.beginPath();ctx.moveTo(cx+12,p.y+14);ctx.lineTo(cx+p.w/2+8,p.y+p.h);ctx.lineTo(cx+p.w/2,p.y+p.h);ctx.closePath();ctx.fill();
-
-  // Cockpit
   ctx.shadowBlur=0;
   ctx.fillStyle='#001a33';
   ctx.beginPath();ctx.ellipse(cx,p.y+13,5,7,0,0,Math.PI*2);ctx.fill();
@@ -189,16 +234,13 @@ function drawPlayer(){
   cpGrad.addColorStop(0,'#7ff');cpGrad.addColorStop(1,'#09f6');
   ctx.fillStyle=cpGrad;
   ctx.beginPath();ctx.ellipse(cx,p.y+13,3.5,5.5,0,0,Math.PI*2);ctx.fill();
-
   ctx.restore();
 }
 
 function drawEnemy(e){
   const cx=e.x+e.w/2,cy=e.y+e.h/2;
   ctx.save();
-
   if(e.type==='elite'){
-    // Elite: menacing pink/red saucer
     const g=ctx.createRadialGradient(cx,cy,2,cx,cy,e.w/2);
     g.addColorStop(0,'#ff6');g.addColorStop(.4,'#f06');g.addColorStop(1,'#800');
     ctx.shadowBlur=14;ctx.shadowColor='#f06';
@@ -207,22 +249,18 @@ function drawEnemy(e){
     ctx.moveTo(cx,e.y);ctx.lineTo(cx+e.w/2,cy);
     ctx.lineTo(cx+e.w/2-5,e.y+e.h);ctx.lineTo(cx-e.w/2+5,e.y+e.h);
     ctx.lineTo(cx-e.w/2,cy);ctx.closePath();ctx.fill();
-    // Pulsing core
     const pulse=.7+.3*Math.sin(e.anim*2);
     ctx.fillStyle=`rgba(255,255,0,${pulse})`;
     ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fill();
-    // Side weapons
     ctx.fillStyle='#f80';
     ctx.fillRect(e.x,cy-2,5,4);ctx.fillRect(e.x+e.w-5,cy-2,5,4);
   } else if(e.type==='mid'){
-    // Mid: purple crab
     const g=ctx.createLinearGradient(e.x,e.y,e.x+e.w,e.y+e.h);
     g.addColorStop(0,'#c4f');g.addColorStop(1,'#60a');
     ctx.shadowBlur=10;ctx.shadowColor='#a4f';
     ctx.fillStyle=g;
     ctx.fillRect(e.x+4,e.y+3,e.w-8,e.h-6);
     ctx.fillRect(e.x,e.y+7,e.w,e.h-14);
-    // Eyes
     ctx.shadowBlur=0;
     ctx.fillStyle='#ddf';
     ctx.beginPath();ctx.arc(cx-6,cy-1,2.5,0,Math.PI*2);ctx.fill();
@@ -230,11 +268,9 @@ function drawEnemy(e){
     ctx.fillStyle='#00f';
     ctx.beginPath();ctx.arc(cx-6,cy-1,1,0,Math.PI*2);ctx.fill();
     ctx.beginPath();ctx.arc(cx+6,cy-1,1,0,Math.PI*2);ctx.fill();
-    // Underbelly
     ctx.fillStyle='rgba(200,150,255,.4)';
     ctx.beginPath();ctx.ellipse(cx,cy+3,7,3,0,0,Math.PI*2);ctx.fill();
   } else {
-    // Basic: green drone
     const g=ctx.createLinearGradient(e.x,e.y,e.x,e.y+e.h);
     g.addColorStop(0,'#5fc');g.addColorStop(1,'#090');
     ctx.shadowBlur=8;ctx.shadowColor='#0f6';
@@ -246,10 +282,7 @@ function drawEnemy(e){
     ctx.fillStyle='#0f9';
     ctx.fillRect(cx-2,e.y+4,4,e.h-10);
   }
-
   ctx.shadowBlur=0;
-
-  // HP pips
   if(e.hp>1){
     for(let i=0;i<e.hp;i++){
       ctx.fillStyle=i===0?'#ff0':'#fa0';
@@ -261,10 +294,7 @@ function drawEnemy(e){
 
 function update(){
   frameCount++;
-  // Scroll stars
   stars.forEach(s=>{s.y+=s.sp;if(s.y>H){s.y=0;s.x=Math.random()*W;}});
-
-  // Player movement
   const p=player;
   if(mouseX!==null){
     const dx=(mouseX-p.w/2)-p.x;
@@ -278,8 +308,6 @@ function update(){
   p.x=Math.max(0,Math.min(W-p.w,p.x));
   p.y=Math.max(H*.38,Math.min(H-p.h-4,p.y));
   if(p.invincible>0)p.invincible--;
-
-  // Player shooting
   if(keys[' ']||keys['z']||keys['Z']){
     if(p._shootCd<=0){
       bullets.push({x:p.x+p.w/2-2,y:p.y,w:4,h:14,speed:16});
@@ -287,14 +315,10 @@ function update(){
     }
   }
   if(p._shootCd>0)p._shootCd--;
-
-  // Move player bullets
   for(let i=bullets.length-1;i>=0;i--){
     bullets[i].y-=bullets[i].speed;
     if(bullets[i].y<0)bullets.splice(i,1);
   }
-
-  // Enemy movement & shooting
   let hitWall=false;
   const waveShootMin=Math.max(40,90-wave*4);
   enemies.forEach(e=>{
@@ -308,14 +332,10 @@ function update(){
     }
   });
   if(hitWall)enemies.forEach(e=>{e.dir*=-1;e.y+=8;});
-
-  // Move enemy bullets
   for(let i=enemyBullets.length-1;i>=0;i--){
     enemyBullets[i].y+=enemyBullets[i].speed;
     if(enemyBullets[i].y>H)enemyBullets.splice(i,1);
   }
-
-  // Player bullet vs enemy
   outer:for(let bi=bullets.length-1;bi>=0;bi--){
     const b=bullets[bi];
     for(let ei=enemies.length-1;ei>=0;ei--){
@@ -334,8 +354,6 @@ function update(){
       }
     }
   }
-
-  // Enemy bullet vs player
   if(p.invincible<=0){
     for(let bi=enemyBullets.length-1;bi>=0;bi--){
       const b=enemyBullets[bi];
@@ -349,21 +367,14 @@ function update(){
       }
     }
   }
-
-  // Enemy reaches bottom
   for(const e of enemies)if(e.y+e.h>=H-8){gameOver();return;}
-
-  // Wave cleared
   if(enemies.length===0){
     wave++;
     updateHUD();
     spawnParticles(W/2,H/2,'#ff0',20);
-    // Check win condition (wave 10 cleared = you win)
     if(wave>10){winGame();return;}
     spawnWave();
   }
-
-  // Particles
   for(let i=particles.length-1;i>=0;i--){
     const pt=particles[i];
     pt.x+=pt.vx;pt.y+=pt.vy;pt.vx*=.91;pt.vy*=.91;pt.life--;
@@ -372,21 +383,15 @@ function update(){
 }
 
 function draw(){
-  // Draw star bg from offscreen canvas
   ctx.drawImage(starCanvas,0,0);
-
-  // Animated star layer (moving stars drawn on top)
   ctx.save();
   stars.forEach(s=>{
     ctx.globalAlpha=s.b;
-    // Twinkle on layer 2
     if(s.layer===2)ctx.globalAlpha=s.b*(.7+.3*Math.sin(frameCount*.08+s.x));
     ctx.fillStyle=s.layer===2?'#fff':s.layer===1?'#cef':'#9ab';
     ctx.fillRect(s.x,s.y,s.s,s.s);
   });
   ctx.restore();
-
-  // Player bullets
   if(bullets.length){
     ctx.shadowBlur=16;ctx.shadowColor='#0ff';
     bullets.forEach(b=>{
@@ -396,8 +401,6 @@ function draw(){
     });
     ctx.shadowBlur=0;
   }
-
-  // Enemy bullets (batch by color to reduce shadow resets)
   if(enemyBullets.length){
     ['#f40','#c4f','#4f4'].forEach(col=>{
       const batch=enemyBullets.filter(b=>b.color===col);
@@ -407,14 +410,8 @@ function draw(){
     });
     ctx.shadowBlur=0;
   }
-
-  // Enemies
   enemies.forEach(e=>drawEnemy(e));
-
-  // Player
   drawPlayer();
-
-  // Particles (batched by color)
   if(particles.length){
     const colorMap={};
     particles.forEach(pt=>{
@@ -431,7 +428,9 @@ function draw(){
     ctx.globalAlpha=1;
   }
 
-  // Pause overlay
+  // Draw wave announcement on top of everything
+  drawWaveAnnounce();
+
   if(paused){
     ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,W,H);
     ctx.fillStyle='#0ff';ctx.font="700 22px 'Orbitron',monospace";
@@ -452,7 +451,6 @@ function gameOver(){
 
 function winGame(){
   running=false;cancelAnimationFrame(raf);
-  // Victory draw
   ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,0,W,H);
   ovTitle.textContent='YOU WIN!';
   ovTitle.style.color='#ff0';ovTitle.style.textShadow='0 0 30px #ff0,0 0 60px #ff06';
@@ -460,7 +458,6 @@ function winGame(){
   ovCredit.style.display='block';
   startBtn.textContent='PLAY AGAIN';
   overlay.classList.remove('hidden');
-  // Reset title color after
   setTimeout(()=>{ovTitle.style.color='';ovTitle.style.textShadow='';},100);
 }
 
@@ -471,7 +468,6 @@ function loop(){
   raf=requestAnimationFrame(loop);
 }
 
-// ── Controls ──
 window.addEventListener('keydown',e=>{
   keys[e.key]=true;
   if(e.key===' ')e.preventDefault();
@@ -498,7 +494,6 @@ startBtn.addEventListener('click',()=>{
   init();
 });
 
-// ── Init idle screen ──
 initStars();
 ctx.drawImage(starCanvas,0,0);
 </script>
